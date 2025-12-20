@@ -1,0 +1,26 @@
+POST http://localhost:8081/api/accounts
+Content-Type: application/json
+
+{
+  "holderName": "Lee Min Kan",
+  "email": "lee1@neobank.com",
+  "initialBalance": 1000.50
+}
+
+###
+
+GET http://localhost:8081/api/accounts/2
+
+###
+
+POST http://localhost:8082/api/transactions
+Content-Type: application/json
+
+{
+  "fromAccountId": 1,
+  "toAccountId": 2,
+  "amount": 10000
+}
+
+###
+

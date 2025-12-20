@@ -1,0 +1,51 @@
+POST http://localhost:8080/api/books
+Content-Type: application/json
+
+{
+  "title": "Spring Boot Mastery",
+  "author": "Leeminkan",
+  "createdAt": "2025-01-01T10:00:00"
+}
+
+###
+GET http://localhost:8080/api/books
+
+###
+GET http://localhost:8080/api/books/1
+
+###
+PUT http://localhost:8080/api/books/1
+Content-Type: application/json
+
+{
+    "title": "Spring Boot Mastery (Updated)",
+    "author": "Leeminkan",
+    "createdAt": "2025-01-01T10:00:00"
+}
+
+###
+DELETE http://localhost:8080/api/books/1
+
+###
+GET http://localhost:8080/api/books/search?keyword=of
+
+### 3. Create a Book (POST) - Should now pass (201 Created)
+# Requires Basic Authentication using the username 'user' and the password printed to the console.
+POST http://localhost:8080/api/books
+Content-Type: application/json
+Authorization: Basic user:0b8b1d70-07fd-4f4d-9a97-7ced9d635382
+// Note: Some HTTP Clients (like IntelliJ's) might auto-encode the Basic string for you.
+
+{
+  "title": "The Art of Secured APIs",
+  "author": "Security Guru"
+}
+
+### 4. Register a New User (POST) - Should return 201 Created
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "mySecurePassword123"
+}

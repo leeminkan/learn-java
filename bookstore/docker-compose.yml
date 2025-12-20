@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    # Use the official PostgreSQL image
+    image: postgres:17
+
+    # Map container port 5432 to host port 5432
+    ports:
+      - "5432:5432"
+
+    # Environment variables are used by the PostgreSQL image to initialize the database
+    environment:
+      # This creates the specific database our Spring Boot app expects
+      POSTGRES_DB: bookstore_db
+      POSTGRES_USER: spring_user # Using a non-default user is good practice
+      POSTGRES_PASSWORD: mysecretpassword
+
+    # Creates a persistent volume so data isn't lost when the container stops
+    volumes:
+      - bookstore_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  bookstore_postgres_data:

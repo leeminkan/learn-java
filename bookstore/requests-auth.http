@@ -1,0 +1,68 @@
+### 1. Register a New User (POST) - Expected: 201 Created
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "username": "finaltestuser",
+  "password": "finalTestPassword1"
+}
+
+
+### 2. Log In to Get the JWT Token (POST) - Expected: 200 OK with the token in the body
+# @name LoginUser
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{
+  "username": "finaltestuser",
+  "password": "finalTestPassword1"
+}
+
+> {%
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+### 4. Access a Protected Resource (POST /api/books) - Expected: 201 Created
+# This request tests the AuthTokenFilter. It uses the token captured in Step 2.
+POST http://localhost:8080/api/books
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "title": "Project Mastery: Spring Boot Secure REST API",
+  "author": "The Successful Learner"
+}
+
+### 5. SECURITY CHECK: Use INVALID Token (POST /api/books) - Expected: 401 Unauthorized
+# This verifies the token filter correctly rejects a random/invalid token.
+POST http://localhost:8080/api/books
+Content-Type: application/json
+Authorization: Bearer invalidtokenstringhere
+
+{
+  "title": "A Rejected Book",
+  "author": "The Hacker"
+}
+
+### 6. Read Public Resource (GET) - Expected: 200 OK (No Token Required)
+GET http://localhost:8080/api/books
+
+### 7. GET me
+GET http://localhost:8080/api/users/me
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+### 8. ADVANCED: Refresh Token Exchange (POST /auth/refreshtoken) - Expected: 200 OK
+# This uses the refreshToken captured during login to get a new Access Token.
+POST http://localhost:8080/auth/refreshtoken
+Content-Type: application/json
+
+{
+    "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
