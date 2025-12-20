@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # issuer-uri: http://keycloak:8080/realms/master  <-- REMOVE OR COMMENT THIS OUT
+          # KEEP THIS! This allows the Gateway to download keys and verify the signature
+          jwk-set-uri: http://keycloak:8080/realms/master/protocol/openid-connect/certs
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true # Auto-create routes based on service names
+      routes:
+        - id: account-service
+          uri: lb://ACCOUNT-SERVICE
+          predicates:
+            - Path=/api/accounts/**
+
+        - id: transaction-service
+          uri: lb://TRANSACTION-SERVICE
+          predicates:
+            - Path=/api/transactions/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

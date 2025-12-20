@@ -20,6 +20,8 @@
         <module>common-library</module>
         <module>account-service</module>
         <module>transaction-service</module>
+        <module>discovery-server</module>
+        <module>api-gateway</module>
     </modules>
 
     <properties>

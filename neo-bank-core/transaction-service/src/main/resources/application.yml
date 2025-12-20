@@ -51,3 +51,8 @@ resilience4j:
         failureRateThreshold: 50      # If 50% fail (2.5 calls), open circuit
         waitDurationInOpenState: 10s  # Wait 10s before trying again
         permittedNumberOfCallsInHalfOpenState: 3
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
