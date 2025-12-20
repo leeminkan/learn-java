@@ -21,6 +21,10 @@ spring:
   # Kafka Configuration
   kafka:
     bootstrap-servers: localhost:9092
+    template:
+      observation-enabled: true  # <--- ADD THIS (Enable Tracing for Producer)
+    listener:
+      observation-enabled: true  # <--- ADD THIS (Enable Tracing for Consumer)
     consumer:
       group-id: account-group
       auto-offset-reset: earliest
@@ -31,3 +35,11 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0 # Log 100% of requests (Don't do this in Prod!)
+  zipkin:
+    tracing:
+      endpoint: "http://localhost:9411/api/v2/spans"

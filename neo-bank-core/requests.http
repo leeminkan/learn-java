@@ -3,7 +3,7 @@ Content-Type: application/json
 
 {
   "holderName": "Lee Min Kan",
-  "email": "lee1@neobank.com",
+  "email": "lee2@neobank.com",
   "initialBalance": 1000.50
 }
 
@@ -19,7 +19,7 @@ Content-Type: application/json
 {
   "fromAccountId": 1,
   "toAccountId": 2,
-  "amount": 10000
+  "amount": 10
 }
 
 ###

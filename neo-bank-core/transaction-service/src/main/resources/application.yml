@@ -19,6 +19,10 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -29,3 +33,21 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0 # Log 100% of requests (Don't do this in Prod!)
+  zipkin:
+    tracing:
+      endpoint: "http://localhost:9411/api/v2/spans"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      account-validation:
+        registerHealthIndicator: true
+        slidingWindowSize: 5          # Check the last 5 calls
+        failureRateThreshold: 50      # If 50% fail (2.5 calls), open circuit
+        waitDurationInOpenState: 10s  # Wait 10s before trying again
+        permittedNumberOfCallsInHalfOpenState: 3

@@ -5,10 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.leeminkan.account.domain.Account;
 import org.leeminkan.account.repository.AccountRepository;
 import org.leeminkan.common.events.AccountCreatedEvent;
+import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -63,6 +65,7 @@ public class AccountService {
     }
 
     public Account getAccount(Long id) {
-        return accountRepository.findById(id).orElseThrow();
+        return accountRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
     }
 }

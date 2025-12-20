@@ -9,6 +9,7 @@ import org.leeminkan.transaction.repository.TransactionRepository;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import io.micrometer.tracing.Tracer;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -20,9 +21,22 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final Tracer tracer;
+    private final AccountValidationClient validationClient;
 
     @Transactional
     public Transaction initiateTransfer(Long fromId, Long toId, BigDecimal amount) {
+        log.info("Validating account {} via HTTP...", fromId);
+        boolean isValid = validationClient.validateAccount(fromId);
+
+        if (!isValid) {
+            throw new RuntimeException("Transfer Denied: Account validation failed or Service Unavailable");
+        }
+
+        if (tracer.currentSpan() != null) {
+            tracer.currentSpan().tag("bank.from_account", fromId.toString());
+        }
+
         // 1. Save Transaction as PENDING
         Transaction transaction = Transaction.builder()
                 .fromAccountId(fromId)
