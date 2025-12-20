@@ -42,10 +42,14 @@ management:
     tracing:
       endpoint: "http://localhost:9411/api/v2/spans"
 
+feign:
+  circuitbreaker:
+    enabled: true
+
 resilience4j:
   circuitbreaker:
     instances:
-      account-validation:
+      ACCOUNT-SERVICE:
         registerHealthIndicator: true
         slidingWindowSize: 5          # Check the last 5 calls
         failureRateThreshold: 50      # If 50% fail (2.5 calls), open circuit

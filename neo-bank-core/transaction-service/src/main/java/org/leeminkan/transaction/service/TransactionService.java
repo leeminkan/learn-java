@@ -3,8 +3,10 @@ package org.leeminkan.transaction.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.leeminkan.common.events.TransactionInitiatedEvent;
+import org.leeminkan.transaction.client.AccountFeignClient;
 import org.leeminkan.transaction.domain.Transaction;
 import org.leeminkan.transaction.domain.TransactionStatus;
+import org.leeminkan.transaction.dto.AccountDto;
 import org.leeminkan.transaction.repository.TransactionRepository;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -22,16 +24,26 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final Tracer tracer;
-    private final AccountValidationClient validationClient;
+
+    // REPLACE THIS:
+    // private final AccountValidationClient validationClient;
+    // WITH THIS:
+    private final AccountFeignClient accountFeignClient;
 
     @Transactional
     public Transaction initiateTransfer(Long fromId, Long toId, BigDecimal amount) {
-        log.info("Validating account {} via HTTP...", fromId);
-        boolean isValid = validationClient.validateAccount(fromId);
-
-        if (!isValid) {
-            throw new RuntimeException("Transfer Denied: Account validation failed or Service Unavailable");
+        // --- FEIGN VALIDATION ---
+        log.info("Validating account {} via Feign...", fromId);
+        try {
+            // This single line does discovery, load balancing, and the HTTP call
+            AccountDto account = accountFeignClient.getAccount(fromId);
+            log.info("Account found: {} (Balance: {})", account.getHolderName(), account.getBalance());
+        } catch (Exception e) {
+            // Feign throws FeignException.NotFound if 404, or RetryableException if down
+            log.error("Account validation failed", e);
+            throw new RuntimeException("Transfer Denied: Account validation failed");
         }
+        // ------------------------
 
         if (tracer.currentSpan() != null) {
             tracer.currentSpan().tag("bank.from_account", fromId.toString());

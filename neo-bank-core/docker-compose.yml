@@ -111,7 +111,7 @@ services:
       # IMPORTANT: We can now use lb://ACCOUNT-SERVICE if we integrate Feign,
       # but for raw RestClient, we still need the URL.
       # However, now we can point to the Gateway URL or the internal container name.
-      ACCOUNT_SERVICE_URL: http://account-service:8081
+#      ACCOUNT_SERVICE_URL: http://account-service:8081
     depends_on:
       - postgres
       - kafka
