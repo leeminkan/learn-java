@@ -1,5 +1,8 @@
 package org.leeminkan.account.controller;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.leeminkan.account.domain.Account;
@@ -18,7 +21,7 @@ public class AccountController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Account createAccount(@RequestBody CreateAccountRequest request) {
+    public Account createAccount(@RequestBody @Valid CreateAccountRequest request) {
         return accountService.createAccount(
                 request.holderName,
                 request.email,
@@ -30,7 +33,9 @@ public class AccountController {
     @Data
     static class CreateAccountRequest {
         private String holderName;
+        @Email
         private String email;
+        @PositiveOrZero(message = "Balance cannot be negative")
         private BigDecimal initialBalance;
     }
 
