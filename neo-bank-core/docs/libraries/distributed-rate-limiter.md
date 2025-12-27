@@ -1,26 +1,27 @@
-# 🛡️ Distributed Rate Limiter Library
+# 🛡️ "Smart" Rate Limiter Library
 
 * **Module:** `common-library`
 * **Package:** `org.leeminkan.common.ratelimit`
-* **Tech Stack:** Bucket4j, Redis (Lettuce), Spring AOP
+* **Strategies:** Bucket4j (Redis), Custom Lua Script (Redis), Resilience4j (Local)
 
 ## 📖 Overview
 
-The Distributed Rate Limiter is a reusable, drop-in component designed to protect our microservices from cascading failures, abuse, and traffic spikes.
+The Smart Rate Limiter is a pluggable, annotation-driven library designed to protect our microservices from abuse and cascading failures.
 
-Unlike a simple local counter, this library uses **Redis** to maintain state. This means the rate limit is enforced globally across all running instances of a service. If `Service A` scales to 10 replicas, the traffic limit applies to the *cluster*, not just the individual pod.
+It implements the **Strategy Pattern**, allowing developers to switch between **Distributed Rate Limiting** (strict, global consistency using Redis) and **Local Rate Limiting** (high-performance, per-instance protection) via a simple configuration flag.
 
 ## ✨ Key Features
 
-* **Declarative:** Apply limits using a single annotation `@RateLimit`.
-* **Distributed:** Uses Redis + Lua scripts for atomic token bucket management.
-* **Zero-Config for Consumers:** Auto-configured by Spring Boot; simply opt-in via properties.
-* **Context Aware:** Limits are applied per **Client IP**, preventing one bad actor from blocking the system for everyone.
+* **Strategy Pattern:** Toggle between `Bucket4j`, `Lua Script`, or `Resilience4j` without changing code.
+* **Distributed State:** Enforce strict quotas across all microservice instances (e.g., "10 requests/sec total across the cluster").
+* **Low Latency:** Optimized implementations using Lettuce Redis driver or in-memory counters.
+* **Context Aware:** Limits are automatically keyed by **Client IP**, preventing "noisy neighbor" problems.
 
 ## 🚀 How to Use
 
 ### 1. Add Dependency
-The library is included in `common-library`. Ensure your service depends on it:
+
+Ensure your service depends on `common-library`:
 
 ```xml
 <dependency>
@@ -31,19 +32,24 @@ The library is included in `common-library`. Ensure your service depends on it:
 
 ```
 
-### 2. Enable in Configuration
+### 2. Configure the Provider
 
-To keep services lightweight, the rate limiter is **disabled by default**. You must explicitly enable it in your `application.yml`:
+Enable the library and choose your strategy in `application.yml`:
 
 ```yaml
 app:
   rate-limit:
-    enabled: true  # <--- Loads the Redis/Bucket4j beans
+    enabled: true
+    # Options: 
+    # 'bucket4j' (Default) - Industry standard distributed token bucket
+    # 'lua' - Custom atomic Lua script (High control, low overhead)
+    # 'local' - Resilience4j (In-memory, per-instance limits)
+    provider: bucket4j 
 
 spring:
   data:
     redis:
-      host: redis  # Point to your Redis instance
+      host: redis
       port: 6379
 
 ```
@@ -58,8 +64,8 @@ Protect sensitive endpoints by adding `@RateLimit` to the method.
 public class TransactionController {
 
     @PostMapping
-    // Result: 1 request allowed every 5 seconds per IP address
-    @RateLimit(key = "create_tx", limit = 1, duration = 5) 
+    // Result: 5 requests allowed every 60 seconds
+    @RateLimit(key = "create_tx", limit = 5, duration = 60) 
     public ResponseEntity<Transaction> create(...) {
         // ... business logic
     }
@@ -67,54 +73,53 @@ public class TransactionController {
 
 ```
 
-## ⚙️ Configuration Reference
+## 🧠 Strategy Guide: Which one to choose?
 
-The `@RateLimit` annotation supports the following parameters:
+| Provider | Type | Backend | Pros | Cons | Best For |
+| --- | --- | --- | --- | --- | --- |
+| **`bucket4j`** | Distributed | Redis | Robust, standard algorithm, highly accurate. | Requires Redis network call (~2ms). | **API Quotas**, Billing limits, User Tiers. |
+| **`lua`** | Distributed | Redis | **Lowest network overhead** for distributed locks. Zero dependencies. | Maintenance of custom Lua scripts. | **High-Scale/HFT** distributed systems requiring atomic exactness. |
+| **`local`** | Local | JVM Memory | **Zero Latency** (Microseconds). No Redis dependency. | Limits are *per instance*. 5 instances = 5x capacity. | **DDoS Protection**, Hardware protection (Bulkheading). |
 
-| Parameter | Type | Description | Example |
-| --- | --- | --- | --- |
-| `key` | `String` | **Required.** A unique identifier for the resource being protected. | `"login_api"` |
-| `limit` | `long` | **Required.** The max number of requests allowed in the window. | `10` |
-| `duration` | `long` | **Required.** The time window length. | `60` |
-| `unit` | `TimeUnit` | Time unit for duration (default: `SECONDS`). | `MINUTES` |
+### Visual Architecture Comparison
 
-## 🏗️ Architecture
+**Distributed (Bucket4j / Lua):**
+All instances talk to a single "Source of Truth" (Redis).
 
-How the request flow works under the hood:
+**Local (Resilience4j):**
+Each instance maintains its own independent counter.
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Service as Microservice (AOP)
-    participant Redis
+## 🔧 Internal Implementation Details
 
-    User->>Service: POST /api/transfer
-    
-    rect rgb(240, 240, 240)
-        note right of Service: RateLimitAspect Intercepts
-        Service->>Service: Extract Client IP
-        Service->>Service: Generate Key: "rate_limit:transfer:{IP}"
-        Service->>Redis: RFEVAL (Lua Script) - Consume 1 Token
-    end
-    
-    alt Token Available
-        Redis-->>Service: Success (Tokens Remaining)
-        Service->>Service: Execute Controller Method
-        Service-->>User: 200 OK
-    else Token Exhausted
-        Redis-->>Service: Fail
-        Service-->>User: 429 Too Many Requests
-    end
+### The Custom Lua Script (`lua` provider)
+
+For the "Expert" implementation, we bypass standard libraries and execute an atomic script directly on Redis. This prevents "Time-of-Check to Time-of-Use" (TOCTOU) race conditions.
+
+**Path:** `common-library/src/main/resources/scripts/rate_limit.lua`
+
+```lua
+local current = redis.call('INCR', KEYS[1])
+if tonumber(current) == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[2])
+end
+if tonumber(current) > tonumber(ARGV[1]) then
+    return 0 -- Rejected
+else
+    return 1 -- Allowed
+end
 
 ```
 
-## 🔧 Troubleshooting
+## ❓ Troubleshooting
 
-**Q: I added the annotation but nothing happens.**
+**Q: I switched to `provider: local` and my limit increased?**
 
-* Did you set `app.rate-limit.enabled: true` in `application.yml`?
-* Is your Redis container running?
+* **A:** Yes. `local` is per-instance. If you have `limit=10` and deploy 3 replicas, your total cluster capacity is now `30`. Use `bucket4j` or `lua` for strict global limits.
+
+**Q: `LuaScriptRateLimiter` fails with "Connection Refused"?**
+
+* **A:** Ensure your `spring.data.redis.host` points to the correct Docker service name (usually `redis`), not `localhost`.
 
 **Q: Why does the Account Service not connect to Redis?**
 
-* The configuration is conditional. Since `account-service` typically does not set the enabled flag, the Redis beans are never loaded, saving resources.
+* **A:** The configuration is conditional (`@ConditionalOnProperty`). If `app.rate-limit.enabled` is false (default), the Redis beans are never loaded, keeping the service lightweight.

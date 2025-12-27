@@ -4,6 +4,8 @@ server:
 app:
   rate-limit:
     enabled: true
+    # Options: 'bucket4j' (default) or 'lua' (manual) or 'local' (In-Memory)
+    provider: lua
 
 spring:
   application:
