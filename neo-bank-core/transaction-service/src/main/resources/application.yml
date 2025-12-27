@@ -1,6 +1,10 @@
 server:
   port: 8082
 
+app:
+  rate-limit:
+    enabled: true
+
 spring:
   application:
     name: transaction-service
@@ -33,6 +37,10 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
+  data:
+    redis:
+      host: redis
+      port: 6379
 
 management:
   tracing:

@@ -55,6 +55,13 @@ services:
     networks:
       - bank-network
 
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - bank-network
+
   # --- SERVICE DISCOVERY ---
   discovery-server:
     build: ./discovery-server

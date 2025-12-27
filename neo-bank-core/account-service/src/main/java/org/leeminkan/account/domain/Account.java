@@ -5,17 +5,19 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+import org.hibernate.envers.Audited;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "accounts")
+@Audited
 @Data
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Account {
+public class Account extends Auditable  {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -28,8 +30,6 @@ public class Account {
 
     @Column(nullable = false)
     private BigDecimal balance;
-
-    private LocalDateTime createdAt;
 
     // BANKING MAGIC: Optimistic Locking
     // If two people update this row at once, the version mismatch will throw an error.
