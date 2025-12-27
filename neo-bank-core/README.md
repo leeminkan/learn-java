@@ -144,3 +144,8 @@ Distributed data consistency is handled via Kafka events:
 1. `TransactionService`: Emits `TransactionInitiated` (State: PENDING).
 2. `AccountService`: Consumes event, updates balances, emits `TransactionProcessed`.
 3. `TransactionService`: Consumes result, updates state to SUCCESS/FAILED.
+
+### 🛡️ Resilience & Security
+* **Distributed Rate Limiting:** Custom library built on **Bucket4j & Redis** to prevent API abuse. [Read the Docs](./docs/libraries/distributed-rate-limiter.md).
+* **Circuit Breaking:** Resilience4j integration for fault tolerance.
+* **Auditability:** Temporal versioning with Hibernate Envers.
