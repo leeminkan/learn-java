@@ -1,31 +1,62 @@
 package org.leeminkan.redis;
 
+import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class KanStore {
 
-    // In Phase 3, we will change <String, String> to <MemorySegment, MemorySegment>
-    private final ConcurrentHashMap<String, String> store = new ConcurrentHashMap<>();
+    // Global allocator for off-heap memory.
+    // "ofShared" allows multiple threads to read/write these segments safely.
+    private final Arena offHeapArena = Arena.ofShared();
 
-    public String get(String key) {
+    // Store the POINTER (MemorySegment) not the data itself.
+    private final ConcurrentHashMap<String, MemorySegment> store = new ConcurrentHashMap<>();
+
+    public MemorySegment get(String key) {
         return store.get(key);
     }
 
-    public void set(String key, String value) {
-        store.put(key, value);
+    /**
+     * Allocates off-heap memory for the value and stores the pointer.
+     */
+    public void set(String key, byte[] valueBytes) {
+        // 1. Allocate native memory (malloc)
+        MemorySegment nativeMem = offHeapArena.allocate(valueBytes.length);
+
+        // 2. Copy the Java byte array INTO the native memory
+        // Heap -> Off-Heap copy
+        MemorySegment.copy(valueBytes, 0, nativeMem, ValueLayout.JAVA_BYTE, 0, valueBytes.length);
+
+        System.out.println("DEBUG: Allocated " + valueBytes.length + " bytes at Off-Heap Address: " + nativeMem.address());
+        // 3. Store the pointer
+        store.put(key, nativeMem);
     }
 
-    /**
-     * Compare-And-Swap (CAS) - The "Banking" Operation.
-     * Only updates the key if the current value matches the expected value.
-     * @return true if update succeeded, false if data changed in background.
-     */
-    public boolean cas(String key, String expectedValue, String newValue) {
-        // If key doesn't exist, replace logic usually fails.
-        // For this MVP, we treat "null" expectedValue as "putIfAbsent"
-        if (expectedValue == null) {
-            return store.putIfAbsent(key, newValue) == null;
+    public boolean cas(String key, String expectedValue, byte[] newValueBytes) {
+        MemorySegment currentSeg = store.get(key);
+
+        // If key doesn't exist, we can't Compare (unless expected is null)
+        if (currentSeg == null) {
+            if (expectedValue == null) {
+                set(key, newValueBytes);
+                return true;
+            }
+            return false;
         }
-        return store.replace(key, expectedValue, newValue);
+
+        // READ current value from Off-Heap to compare
+        // Note: This copy is the cost of validation.
+        byte[] currentBytes = currentSeg.toArray(ValueLayout.JAVA_BYTE);
+        String currentStr = new String(currentBytes, StandardCharsets.UTF_8);
+
+        if (currentStr.equals(expectedValue)) {
+            set(key, newValueBytes); // This allocates NEW memory and updates the map
+            return true;
+        }
+
+        return false;
     }
 }
