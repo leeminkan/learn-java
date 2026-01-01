@@ -1,6 +1,10 @@
 package org.leeminkan.redis;
 
+import org.leeminkan.redis.jmx.KanMonitor;
+
+import javax.management.ObjectName;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -10,6 +14,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * KanRedisServer
@@ -24,6 +29,7 @@ public class KanRedisServer {
     private boolean isRunning = true;
     private KanStore store;
     private KanProtocol protocol;
+    public static final AtomicInteger connectedClients = new AtomicInteger(0);
 
     // A map to store data associated with a connection (buffers, state)
     // In a real Netty implementation, this would be the 'ChannelContext'
@@ -45,6 +51,16 @@ public class KanRedisServer {
 
         // 4. Initialize Protocol
         protocol = new KanProtocol(store);
+
+        // --- NEW: JMX Registration ---
+        try {
+            KanMonitor monitor = new KanMonitor(store);
+            ObjectName name = new ObjectName("org.leeminkan.redis:type=KanMonitor");
+            ManagementFactory.getPlatformMBeanServer().registerMBean(monitor, name);
+            System.out.println("JMX Monitor registered. Connect using JConsole.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         // 1. Open the Selector (The "Event Loop" Monitor)
         selector = Selector.open();
@@ -105,6 +121,7 @@ public class KanRedisServer {
         clientBuffers.put(client, ByteBuffer.allocate(4096));
 
         System.out.println("New Connection: " + client.getRemoteAddress());
+        connectedClients.incrementAndGet();
     }
 
     private void handleRead(SelectionKey key) throws IOException {
@@ -144,7 +161,9 @@ public class KanRedisServer {
     private void closeConnection(SocketChannel client) throws IOException {
         System.out.println("Connection Closed: " + client.getRemoteAddress());
         clientBuffers.remove(client);
+        connectedClients.decrementAndGet();
         client.close();
+
     }
 
     public static void main(String[] args) throws IOException {

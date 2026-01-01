@@ -5,12 +5,14 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class KanStore {
 
     // Global allocator for off-heap memory.
     // "ofShared" allows multiple threads to read/write these segments safely.
     private final Arena offHeapArena = Arena.ofShared();
+    private final AtomicLong usedMemoryBytes = new AtomicLong(0);
 
     // Store the POINTER (MemorySegment) not the data itself.
     private final ConcurrentHashMap<String, MemorySegment> store = new ConcurrentHashMap<>();
@@ -19,6 +21,11 @@ public class KanStore {
 
     public KanStore(KanWal wal) {
         this.wal = wal;
+    }
+
+    // Add a getter for the JMX bean to call
+    public long getUsedMemory() {
+        return usedMemoryBytes.get();
     }
 
     public MemorySegment get(String key) {
@@ -37,6 +44,8 @@ public class KanStore {
         System.out.println("DEBUG: Allocated " + valueBytes.length + " bytes at Off-Heap Address: " + nativeMem.address());
         // 3. Store the pointer
         store.put(key, nativeMem);
+
+        usedMemoryBytes.addAndGet(valueBytes.length);
     }
 
     /**

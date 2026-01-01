@@ -4,10 +4,12 @@ import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.BufferUnderflowException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class KanProtocol {
 
     private final KanStore store;
+    public static final AtomicLong totalCommands = new AtomicLong(0);
 
     public KanProtocol(KanStore store) {
         this.store = store;
@@ -37,6 +39,7 @@ public class KanProtocol {
                 return true; // We handled it (by erroring), so return true
             }
 
+            totalCommands.incrementAndGet();
             switch (type) {
                 case GET -> handleGet(buffer, responseBuffer);
                 case SET -> handleSet(buffer, responseBuffer);
