@@ -15,14 +15,18 @@ public class KanStore {
     // Store the POINTER (MemorySegment) not the data itself.
     private final ConcurrentHashMap<String, MemorySegment> store = new ConcurrentHashMap<>();
 
+    private final KanWal wal;
+
+    public KanStore(KanWal wal) {
+        this.wal = wal;
+    }
+
     public MemorySegment get(String key) {
         return store.get(key);
     }
 
-    /**
-     * Allocates off-heap memory for the value and stores the pointer.
-     */
-    public void set(String key, byte[] valueBytes) {
+    // Helper to avoid duplicating the allocation logic
+    private void putInMemory(String key, byte[] valueBytes) {
         // 1. Allocate native memory (malloc)
         MemorySegment nativeMem = offHeapArena.allocate(valueBytes.length);
 
@@ -35,28 +39,43 @@ public class KanStore {
         store.put(key, nativeMem);
     }
 
+    /**
+     * Allocates off-heap memory for the value and stores the pointer.
+     */
+    public void set(String key, byte[] valueBytes) {
+        // 1. Write to Disk FIRST (Durability)
+        if (wal != null) {
+            wal.writeSet(key, valueBytes);
+        }
+
+        // 2. Update Memory
+        putInMemory(key, valueBytes);
+    }
+
+    // Restore (Called by WAL Replay)
+    public void restore(String key, byte[] valueBytes) {
+        putInMemory(key, valueBytes); // Skip WAL write
+    }
+
     public boolean cas(String key, String expectedValue, byte[] newValueBytes) {
         MemorySegment currentSeg = store.get(key);
-
-        // If key doesn't exist, we can't Compare (unless expected is null)
         if (currentSeg == null) {
             if (expectedValue == null) {
-                set(key, newValueBytes);
+                set(key, newValueBytes); // set() already handles WAL
                 return true;
             }
             return false;
         }
 
-        // READ current value from Off-Heap to compare
-        // Note: This copy is the cost of validation.
         byte[] currentBytes = currentSeg.toArray(ValueLayout.JAVA_BYTE);
         String currentStr = new String(currentBytes, StandardCharsets.UTF_8);
 
         if (currentStr.equals(expectedValue)) {
-            set(key, newValueBytes); // This allocates NEW memory and updates the map
+            // Log the NEW value as a standard SET operation
+            wal.writeSet(key, newValueBytes);
+            putInMemory(key, newValueBytes);
             return true;
         }
-
         return false;
     }
 }

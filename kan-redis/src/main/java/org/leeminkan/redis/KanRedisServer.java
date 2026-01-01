@@ -22,8 +22,8 @@ public class KanRedisServer {
     private Selector selector;
     private ServerSocketChannel serverChannel;
     private boolean isRunning = true;
-    private final KanStore store = new KanStore();
-    private final KanProtocol protocol = new KanProtocol(store);
+    private KanStore store;
+    private KanProtocol protocol;
 
     // A map to store data associated with a connection (buffers, state)
     // In a real Netty implementation, this would be the 'ChannelContext'
@@ -34,6 +34,18 @@ public class KanRedisServer {
     }
 
     public void start() throws IOException {
+        // 1. Initialize WAL
+        KanWal wal = new KanWal("kan-data.log");
+
+        // 2. Initialize Store with WAL
+        store = new KanStore(wal);
+
+        // 3. Replay Old Data
+        wal.replay(store);
+
+        // 4. Initialize Protocol
+        protocol = new KanProtocol(store);
+
         // 1. Open the Selector (The "Event Loop" Monitor)
         selector = Selector.open();
 
