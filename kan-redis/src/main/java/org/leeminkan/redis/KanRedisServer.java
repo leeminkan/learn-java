@@ -23,12 +23,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class KanRedisServer {
 
+    // Defined in ADR-001: Protection against OOM attacks
+    private static final int MAX_FRAME_SIZE = 10 * 1024 * 1024; // 10 MB
+
     private final int port;
     private Selector selector;
     private ServerSocketChannel serverChannel;
     private boolean isRunning = true;
+
+    // Dependencies
     private KanStore store;
     private KanProtocol protocol;
+
     public static final AtomicInteger connectedClients = new AtomicInteger(0);
 
     // A map to store data associated with a connection (buffers, state)
@@ -40,6 +46,7 @@ public class KanRedisServer {
     }
 
     public void start() throws IOException {
+        // Initialize dependencies (WAL, Store, Protocol)
         // 1. Initialize WAL
         KanWal wal = new KanWal("kan-data.log");
 
@@ -52,7 +59,7 @@ public class KanRedisServer {
         // 4. Initialize Protocol
         protocol = new KanProtocol(store);
 
-        // --- NEW: JMX Registration ---
+        // JMX Registration
         try {
             KanMonitor monitor = new KanMonitor(store);
             ObjectName name = new ObjectName("org.leeminkan.redis:type=KanMonitor");
@@ -62,21 +69,15 @@ public class KanRedisServer {
             e.printStackTrace();
         }
 
-        // 1. Open the Selector (The "Event Loop" Monitor)
+        // Network Setup
         selector = Selector.open();
-
-        // 2. Open Server Channel (The "Door")
         serverChannel = ServerSocketChannel.open();
         serverChannel.bind(new InetSocketAddress(port));
-
         // CRITICAL: Must be non-blocking to work with Selector
         serverChannel.configureBlocking(false);
-
-        // 3. Register the "Accept" event. We want to know when a new client knocks.
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         System.out.println("Kan-Redis listening on port " + port + "...");
-
         runEventLoop();
     }
 
@@ -139,9 +140,12 @@ public class KanRedisServer {
 
             // Temp buffer for responses
             ByteBuffer responseBuffer = ByteBuffer.allocate(4096);
+            boolean processedAny = false; // Tracks if we made progress
 
             // Loop to process all complete commands in the buffer
             while (protocol.process(buffer, responseBuffer)) {
+                processedAny = true;
+
                 // If a command was processed, we might have a response to send
                 if (responseBuffer.position() > 0) {
                     responseBuffer.flip();
@@ -152,9 +156,35 @@ public class KanRedisServer {
                 }
             }
 
-            // CRITICAL: Move remaining (partial) bytes to the start
-            // and switch back to WRITE mode for the next socket read.
-            buffer.compact();
+            // Buffer Management Strategy (ADR-001)
+            // If we processed NO commands, and the buffer is completely full,
+            // it means the current command is larger than the buffer capacity.
+            // Note: buffer.remaining() == capacity() implies the 'mark' is at 0 and 'limit' is at capacity.
+            if (!processedAny && buffer.remaining() == buffer.capacity()) {
+
+                // Check Safety Limit
+                if (buffer.capacity() * 2 > MAX_FRAME_SIZE) {
+                    System.err.println("Error: Client " + client.getRemoteAddress() + " exceeded max frame size.");
+                    closeConnection(client);
+                    return;
+                }
+
+                // Resize: Double the capacity
+                ByteBuffer newBuffer = ByteBuffer.allocate(buffer.capacity() * 2);
+
+                // Copy the partial data from the old buffer to the new one
+                newBuffer.put(buffer);
+
+                // Update map
+                clientBuffers.put(client, newBuffer);
+
+                System.out.println("ADR-001: Resized buffer for " + client.getRemoteAddress() +
+                        " to " + newBuffer.capacity() + " bytes");
+            } else {
+                // Standard case: We made progress OR we have space left.
+                // Move partial bytes to the start for the next read.
+                buffer.compact();
+            }
         }
     }
 
