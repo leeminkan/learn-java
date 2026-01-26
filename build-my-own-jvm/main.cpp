@@ -33,9 +33,8 @@ int main(int argc, char *argv[])
         std::cerr << "Error: Main method not found." << std::endl;
         return 1;
     }
-
-    // 3. Execute!
-    Interpreter interpreter(reader.get_constant_pool());
+    // 3. Initialize Interpreter with the Constant Pool AND ALL METHODS
+    Interpreter interpreter(reader.get_constant_pool(), reader.get_methods());
     interpreter.run(main_method);
 
     return 0;
