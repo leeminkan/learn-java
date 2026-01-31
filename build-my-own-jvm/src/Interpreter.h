@@ -98,12 +98,28 @@ public:
         // --- JIT CHECK ---
 
         // 1. If we already compiled this, run the native ARM64 code!
+
         if (method.jit_code_ptr != nullptr)
         {
+
             std::cout << "--- EXECUTING NATIVE CODE FOR " << method.name << " ---" << std::endl;
-            // Cast memory address to function pointer
-            JitFunction func = (JitFunction)method.jit_code_ptr;
-            int result = func(); // CPU JUMPS HERE
+
+            // Function pointer type: int func(int a, int b)
+
+            typedef int (*JitFunctionArgs)(int, int);
+
+            JitFunctionArgs func = (JitFunctionArgs)method.jit_code_ptr;
+
+            // Get arguments from the vector if they exist
+
+            int arg1 = (args.size() > 0) ? args[0] : 0;
+
+            int arg2 = (args.size() > 1) ? args[1] : 0;
+
+            // Execute Native Code!
+
+            int result = func(arg1, arg2);
+
             return result;
         }
 
@@ -118,8 +134,13 @@ public:
             {
                 method.jit_code_ptr = code;
                 // Run the newly compiled code immediately
-                JitFunction func = (JitFunction)code;
-                return func();
+                typedef int (*JitFunctionArgs)(int, int);
+                JitFunctionArgs func = (JitFunctionArgs)code;
+
+                int arg1 = (args.size() > 0) ? args[0] : 0;
+                int arg2 = (args.size() > 1) ? args[1] : 0;
+
+                return func(arg1, arg2);
             }
         }
 
