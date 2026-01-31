@@ -17,6 +17,14 @@
 #define OP_ASTORE_1 0x4c      // Store object ref in local var 1
 #define OP_ALOAD_1 0x2b       // Load object ref from local var 1
 
+#define OP_ACONST_NULL 0x01
+#define OP_ICONST_M1 0x02
+#define OP_ICONST_0 0x03
+#define OP_ICONST_1 0x04
+#define OP_ICONST_2 0x05
+#define OP_ICONST_3 0x06
+#define OP_ICONST_4 0x07
+
 #define OP_ICONST_5 0x08
 #define OP_BIPUSH 0x10
 #define OP_ISTORE_1 0x3c
@@ -33,6 +41,12 @@
 #define OP_LDC 0x12
 #define OP_INVOKEVIRTUAL 0xb6
 #define OP_RETURN 0xb1
+
+#define OP_IF_ICMPLE 0xa4  // Branch if int comparison is <=
+#define OP_IF_ICMPGT 0xa3  // Branch if int comparison is >
+#define OP_GOTO      0xa7  // Jump unconditionally
+#define OP_IINC      0x84  // Increment local variable
+
 
 // Represents a Java Object allocated on the Heap
 struct JavaObject
@@ -176,6 +190,35 @@ public:
                 pc += 3;
                 break;
             }
+
+            case OP_ACONST_NULL:
+                operand_stack.push(0); // Representing null as 0
+                pc += 1;
+                break;
+            case OP_ICONST_M1:
+                operand_stack.push(-1);
+                pc += 1;
+                break;
+            case OP_ICONST_0:
+                operand_stack.push(0);
+                pc += 1;
+                break;
+            case OP_ICONST_1:
+                operand_stack.push(1);
+                pc += 1;
+                break;
+            case OP_ICONST_2:
+                operand_stack.push(2);
+                pc += 1;
+                break;
+            case OP_ICONST_3:
+                operand_stack.push(3);
+                pc += 1;
+                break;
+            case OP_ICONST_4:
+                operand_stack.push(4);
+                pc += 1;
+                break;
 
             case OP_ICONST_5:
                 std::cout << "Instruction: iconst_5" << std::endl;
@@ -336,6 +379,62 @@ public:
                 pc += 3;
                 break;
             }
+
+            case OP_IF_ICMPGT: {
+                // Format: if_icmpgt branchbyte1 branchbyte2
+                // Pops val2, val1. If val1 > val2, jump.
+
+                int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
+
+                int val2 = operand_stack.top(); operand_stack.pop();
+                int val1 = operand_stack.top(); operand_stack.pop();
+
+                if (val1 > val2) {
+                    std::cout << "Instruction: if_icmpgt (Branch taken -> offset " << offset << ")" << std::endl;
+                    pc += offset; // JUMP!
+                } else {
+                    std::cout << "Instruction: if_icmpgt (Branch not taken)" << std::endl;
+                    pc += 3; // Continue to next instruction
+                }
+                break;
+            }
+
+            case OP_GOTO: {
+                // Format: goto branchbyte1 branchbyte2
+                int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
+                std::cout << "Instruction: goto (Loop back -> offset " << offset << ")" << std::endl;
+                pc += offset; // JUMP!
+                break;
+            }
+
+            case OP_IINC: {
+                // Format: iinc index const
+                // Increments local variable at 'index' by 'const'
+                uint8_t index = code[pc + 1];
+                int8_t constant = code[pc + 2]; // signed byte
+
+                local_variables[index] += constant;
+                std::cout << "Instruction: iinc (Var " << (int)index << " += " << (int)constant << ")" << std::endl;
+                pc += 3;
+                break;
+            }
+
+            // NOTE: Depending on your java compiler version, it might use 'if_icmple' instead
+            case OP_IF_ICMPLE: {
+                 int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
+                 int val2 = operand_stack.top(); operand_stack.pop();
+                 int val1 = operand_stack.top(); operand_stack.pop();
+
+                 if (val1 <= val2) {
+                     std::cout << "Instruction: if_icmple (Branch taken -> offset " << offset << ")" << std::endl;
+                     pc += offset;
+                 } else {
+                    std::cout << "Instruction: if_icmple (Branch not taken)" << std::endl;
+                     pc += 3;
+                 }
+                 break;
+            }
+
             case OP_RETURN:
                 std::cout << "Instruction: return" << std::endl;
                 return 0;
