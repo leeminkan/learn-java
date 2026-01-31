@@ -42,18 +42,17 @@
 #define OP_INVOKEVIRTUAL 0xb6
 #define OP_RETURN 0xb1
 
-#define OP_IF_ICMPLE 0xa4  // Branch if int comparison is <=
-#define OP_IF_ICMPGT 0xa3  // Branch if int comparison is >
-#define OP_GOTO      0xa7  // Jump unconditionally
-#define OP_IINC      0x84  // Increment local variable
-#define OP_IF_ICMPGE 0xa2  // Branch if int comparison is >=
+#define OP_IF_ICMPLE 0xa4 // Branch if int comparison is <=
+#define OP_IF_ICMPGT 0xa3 // Branch if int comparison is >
+#define OP_GOTO 0xa7      // Jump unconditionally
+#define OP_IINC 0x84      // Increment local variable
+#define OP_IF_ICMPGE 0xa2 // Branch if int comparison is >=
 
 // --- ARRAY OPCODES ---
-#define OP_NEWARRAY     0xbc  // Create primitive array
-#define OP_ARRAYLENGTH  0xbe  // Get length of array
-#define OP_IALOAD       0x2e  // Load int from array
-#define OP_IASTORE      0x4f  // Store int into array
-
+#define OP_NEWARRAY 0xbc    // Create primitive array
+#define OP_ARRAYLENGTH 0xbe // Get length of array
+#define OP_IALOAD 0x2e      // Load int from array
+#define OP_IASTORE 0x4f     // Store int into array
 
 // Represents a Java Object allocated on the Heap
 struct JavaObject
@@ -391,26 +390,33 @@ public:
                 break;
             }
 
-            case OP_IF_ICMPGT: {
+            case OP_IF_ICMPGT:
+            {
                 // Format: if_icmpgt branchbyte1 branchbyte2
                 // Pops val2, val1. If val1 > val2, jump.
 
                 int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
 
-                int val2 = operand_stack.top(); operand_stack.pop();
-                int val1 = operand_stack.top(); operand_stack.pop();
+                int val2 = operand_stack.top();
+                operand_stack.pop();
+                int val1 = operand_stack.top();
+                operand_stack.pop();
 
-                if (val1 > val2) {
+                if (val1 > val2)
+                {
                     std::cout << "Instruction: if_icmpgt (Branch taken -> offset " << offset << ")" << std::endl;
                     pc += offset; // JUMP!
-                } else {
+                }
+                else
+                {
                     std::cout << "Instruction: if_icmpgt (Branch not taken)" << std::endl;
                     pc += 3; // Continue to next instruction
                 }
                 break;
             }
 
-            case OP_GOTO: {
+            case OP_GOTO:
+            {
                 // Format: goto branchbyte1 branchbyte2
                 int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
                 std::cout << "Instruction: goto (Loop back -> offset " << offset << ")" << std::endl;
@@ -418,7 +424,8 @@ public:
                 break;
             }
 
-            case OP_IINC: {
+            case OP_IINC:
+            {
                 // Format: iinc index const
                 // Increments local variable at 'index' by 'const'
                 uint8_t index = code[pc + 1];
@@ -427,43 +434,53 @@ public:
                 local_variables[index] += constant;
                 std::cout << "Instruction: iinc (Var " << (int)index << " += " << (int)constant << ")" << std::endl;
                 pc += 3;
-                 break;
+                break;
             }
 
             // NOTE: Your java compiler version might use 'if_icmple'
-            case OP_IF_ICMPLE: {
-                 int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
-                 int val2 = operand_stack.top(); operand_stack.pop();
-                 int val1 = operand_stack.top(); operand_stack.pop();
-
-                 if (val1 <= val2) {
-                     std::cout << "Instruction: if_icmple (Branch taken -> offset " << offset << ")" << std::endl;
-                     pc += offset;
-                 } else {
-                     std::cout << "Instruction: if_icmple (Branch not taken)" << std::endl;
-                     pc += 3;
-                 }
-                 break;
-            }
-
-            case OP_IF_ICMPGE: {
-                // Format: if_icmpge branchbyte1 branchbyte2
-                // Pops val2, val1. If val1 >= val2, jump.
+            case OP_IF_ICMPLE:
+            {
                 int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
-                int val2 = operand_stack.top(); operand_stack.pop();
-                int val1 = operand_stack.top(); operand_stack.pop();
+                int val2 = operand_stack.top();
+                operand_stack.pop();
+                int val1 = operand_stack.top();
+                operand_stack.pop();
 
-                if (val1 >= val2) {
-                    std::cout << "Instruction: if_icmpge (Branch taken -> offset " << offset << ")" << std::endl;
+                if (val1 <= val2)
+                {
+                    std::cout << "Instruction: if_icmple (Branch taken -> offset " << offset << ")" << std::endl;
                     pc += offset;
-                } else {
-                    std::cout << "Instruction: if_icmpge (Branch not taken)" << std::endl;
+                }
+                else
+                {
+                    std::cout << "Instruction: if_icmple (Branch not taken)" << std::endl;
                     pc += 3;
                 }
                 break;
             }
 
+            case OP_IF_ICMPGE:
+            {
+                // Format: if_icmpge branchbyte1 branchbyte2
+                // Pops val2, val1. If val1 >= val2, jump.
+                int16_t offset = (code[pc + 1] << 8) | code[pc + 2];
+                int val2 = operand_stack.top();
+                operand_stack.pop();
+                int val1 = operand_stack.top();
+                operand_stack.pop();
 
+                if (val1 >= val2)
+                {
+                    std::cout << "Instruction: if_icmpge (Branch taken -> offset " << offset << ")" << std::endl;
+                    pc += offset;
+                }
+                else
+                {
+                    std::cout << "Instruction: if_icmpge (Branch not taken)" << std::endl;
+                    pc += 3;
+                }
+                break;
+            }
 
             case OP_RETURN:
                 std::cout << "Instruction: return" << std::endl;
@@ -476,78 +493,91 @@ public:
                 // In our CP, this index points to the String "Hello, World!"
                 operand_stack.push(index);
                 pc += 2;
-                                 break;
-                            }
-                
-                            case OP_NEWARRAY: {
-                                // Format: newarray atype
-                                uint8_t atype = code[pc + 1]; // 10 = int, 4 = boolean, etc.
-                
-                                int count = operand_stack.top(); operand_stack.pop();
-                
-                                // Create the array object
-                                auto obj = std::make_shared<JavaObject>();
-                                obj->class_name = "[I"; // Internal name for int[]
-                                obj->array_data.resize(count, 0); // Initialize with zeros
-                
-                                heap.push_back(obj);
-                                int obj_ref = heap.size() - 1;
-                                operand_stack.push(obj_ref);
-                
-                                std::cout << "Instruction: newarray (Created int[" << count << "] at Heap " << obj_ref << ")" << std::endl;
-                                pc += 2;
-                                break;
-                            }
-                
-                            case OP_ARRAYLENGTH: {
-                                int obj_ref = operand_stack.top(); operand_stack.pop();
-                                int length = heap[obj_ref]->array_data.size();
-                
-                                std::cout << "Instruction: arraylength (Len: " << length << ")" << std::endl;
-                                operand_stack.push(length);
-                                pc += 1;
-                                break;
-                            }
-                
-                            case OP_IASTORE: {
-                                // Stack: arrayref, index, value -> (Empty)
-                                int value = operand_stack.top(); operand_stack.pop();
-                                int index = operand_stack.top(); operand_stack.pop();
-                                int obj_ref = operand_stack.top(); operand_stack.pop();
-                
-                                // Safety check (optional but recommended)
-                                if (index < 0 || index >= heap[obj_ref]->array_data.size()) {
-                                    std::cerr << "Error: ArrayIndexOutOfBoundsException: " << index << std::endl;
-                                    return 0; // Simulate JVM exit on error
-                                }
-                
-                                heap[obj_ref]->array_data[index] = value;
-                                std::cout << "Instruction: iastore (arr[" << index << "] = " << value << ")" << std::endl;
-                                pc += 1;
-                                break;
-                            }
-                
-                            case OP_IALOAD: {
-                                // Stack: arrayref, index -> value
-                                int index = operand_stack.top(); operand_stack.pop();
-                                int obj_ref = operand_stack.top(); operand_stack.pop();
-                
-                                // Safety check (optional but recommended)
-                                if (index < 0 || index >= heap[obj_ref]->array_data.size()) {
-                                    std::cerr << "Error: ArrayIndexOutOfBoundsException: " << index << std::endl;
-                                    return 0; // Simulate JVM exit on error
-                                }
-                
-                                int value = heap[obj_ref]->array_data[index];
-                
-                                std::cout << "Instruction: iaload (Read " << value << " from index " << index << ")" << std::endl;
-                                operand_stack.push(value);
-                                pc += 1;
-                                break;
-                            }
-                
-                            default:
-                                // Skip unsupported opcodes for now
+                break;
+            }
+
+            case OP_NEWARRAY:
+            {
+                // Format: newarray atype
+                uint8_t atype = code[pc + 1]; // 10 = int, 4 = boolean, etc.
+
+                int count = operand_stack.top();
+                operand_stack.pop();
+
+                // Create the array object
+                auto obj = std::make_shared<JavaObject>();
+                obj->class_name = "[I";           // Internal name for int[]
+                obj->array_data.resize(count, 0); // Initialize with zeros
+
+                heap.push_back(obj);
+                int obj_ref = heap.size() - 1;
+                operand_stack.push(obj_ref);
+
+                std::cout << "Instruction: newarray (Created int[" << count << "] at Heap " << obj_ref << ")" << std::endl;
+                pc += 2;
+                break;
+            }
+
+            case OP_ARRAYLENGTH:
+            {
+                int obj_ref = operand_stack.top();
+                operand_stack.pop();
+                int length = heap[obj_ref]->array_data.size();
+
+                std::cout << "Instruction: arraylength (Len: " << length << ")" << std::endl;
+                operand_stack.push(length);
+                pc += 1;
+                break;
+            }
+
+            case OP_IASTORE:
+            {
+                // Stack: arrayref, index, value -> (Empty)
+                int value = operand_stack.top();
+                operand_stack.pop();
+                int index = operand_stack.top();
+                operand_stack.pop();
+                int obj_ref = operand_stack.top();
+                operand_stack.pop();
+
+                // Safety check (optional but recommended)
+                if (index < 0 || index >= heap[obj_ref]->array_data.size())
+                {
+                    std::cerr << "Error: ArrayIndexOutOfBoundsException: " << index << std::endl;
+                    return 0; // Simulate JVM exit on error
+                }
+
+                heap[obj_ref]->array_data[index] = value;
+                std::cout << "Instruction: iastore (arr[" << index << "] = " << value << ")" << std::endl;
+                pc += 1;
+                break;
+            }
+
+            case OP_IALOAD:
+            {
+                // Stack: arrayref, index -> value
+                int index = operand_stack.top();
+                operand_stack.pop();
+                int obj_ref = operand_stack.top();
+                operand_stack.pop();
+
+                // Safety check (optional but recommended)
+                if (index < 0 || index >= heap[obj_ref]->array_data.size())
+                {
+                    std::cerr << "Error: ArrayIndexOutOfBoundsException: " << index << std::endl;
+                    return 0; // Simulate JVM exit on error
+                }
+
+                int value = heap[obj_ref]->array_data[index];
+
+                std::cout << "Instruction: iaload (Read " << value << " from index " << index << ")" << std::endl;
+                operand_stack.push(value);
+                pc += 1;
+                break;
+            }
+
+            default:
+                // Skip unsupported opcodes for now
                 std::cout << "Skipping opcode: 0x" << std::hex << (int)opcode << std::dec << std::endl;
                 pc += 1;
                 break;

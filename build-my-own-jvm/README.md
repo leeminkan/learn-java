@@ -33,27 +33,30 @@ javac tests/HelloWorld.java -d build/
 Once the `.class` files are in the `build/` directory, you can run them using `myjvm`:
 
 ```bash
-build/myjvm build/HelloWorld
+build/myjvm build/HelloWorld.class
 ```
 
-Note that you should provide the class name without the `.class` extension.
+Note that you must provide the full class filename, including the `.class` extension.
 
 ## Current Capabilities
 
-This JVM implementation is a work in progress and supports a limited set of features:
+This JVM implementation is a work in progress and supports a growing set of features:
 
 -   **Class File Parsing**: Basic parsing of `.class` files, including the constant pool and method information.
--   **Bytecode Interpretation**: Execution of a small subset of JVM opcodes, including:
-    -   Integer arithmetic (`iadd`).
-    -   Local variable manipulation (`istore`, `iload`).
-    -   Static method calls (`invokestatic`).
-    -   Hardcoded support for `System.out.println`.
-    -   Basic object creation and field access (currently hardcoded for a `Point` class).
+-   **Bytecode Interpretation**: Execution of an expanding subset of JVM opcodes.
+    -   **Integer Arithmetic & Constants**: `iadd`, `iconst_*`, `bipush`.
+    -   **Control Flow**: Branching opcodes like `goto` and `if_icmpge` that enable loops and conditionals, making the JVM Turing-complete.
+    -   **Local Variables**: `iload`, `istore`, `iinc`.
+    -   **Object & Array Support**:
+        -   Basic object creation for a hardcoded `Point` class.
+        -   Integer array creation (`newarray`), length checking (`arraylength`), and element access (`iaload`, `iastore`).
+    -   **Method Invocation**: Static method calls (`invokestatic`) and dynamic dispatch for `System.out.println` (`invokevirtual`).
 
 ## Limitations
 
--   Many operations use hardcoded values instead of dynamic lookups in the constant pool.
--   Limited opcode support (no control flow, arrays, exceptions, floating-point numbers, etc.).
--   Incomplete parsing of `.class` file structures (e.g., fields are mostly ignored).
+-   Many operations still use hardcoded values instead of fully dynamic lookups in the constant pool (e.g., for object fields).
+-   Opcode support is still incomplete (no floating-point numbers, exceptions, etc.).
+-   Array support is limited to integer arrays.
+-   The class parser ignores many attributes and structures.
 
 This project is ideal for learning about JVM internals and can be extended to support more Java features.
