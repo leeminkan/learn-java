@@ -46,3 +46,10 @@ struct MethodInfo
     uint16_t max_stack;
     uint16_t max_locals;
 };
+
+// Add this struct
+struct CpNameAndType : CpInfo
+{
+    uint16_t name_index;
+    uint16_t descriptor_index;
+};

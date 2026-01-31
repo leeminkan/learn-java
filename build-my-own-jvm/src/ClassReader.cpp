@@ -62,12 +62,28 @@ void ClassReader::parse()
         switch (tag)
         {
         case CONSTANT_Fieldref:
-        case CONSTANT_Methodref:
-        case CONSTANT_NameAndType:
             read_u2();
             read_u2();
             constant_pool.push_back(std::make_shared<CpInfo>());
             break;
+        case CONSTANT_Methodref:
+        {
+            auto m = std::make_shared<CpMethodRef>();
+            m->tag = tag;
+            m->class_index = read_u2();
+            m->name_and_type_index = read_u2();
+            constant_pool.push_back(m);
+            break;
+        }
+        case CONSTANT_NameAndType:
+        {
+            auto nt = std::make_shared<CpNameAndType>();
+            nt->tag = tag;
+            nt->name_index = read_u2();
+            nt->descriptor_index = read_u2();
+            constant_pool.push_back(nt);
+            break;
+        }
         case CONSTANT_Class:
             read_u2();
             constant_pool.push_back(std::make_shared<CpInfo>());

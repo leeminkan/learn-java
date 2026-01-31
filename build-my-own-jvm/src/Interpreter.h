@@ -277,56 +277,65 @@ public:
                 return result; // DESTROY FRAME
             }
 
-            // Works with other testcase
             case OP_GETSTATIC:
-                // Just pushing a dummy reference for System.out
+            {
+                // getstatic indexbyte1 indexbyte2
+                uint16_t index = (code[pc + 1] << 8) | code[pc + 2];
+                std::cout << "Instruction: getstatic #" << index << " (System.out)" << std::endl;
+                // In a real JVM, this pushes a reference to System.out onto the stack.
+                // We'll push a dummy reference '99' to represent System.out.
                 operand_stack.push(99);
                 pc += 3;
                 break;
+            }
             case OP_INVOKEVIRTUAL:
             {
-                int value = operand_stack.top();
-                operand_stack.pop();
-                operand_stack.pop(); // pop dummy system.out
-                std::cout << ">> JVM OUTPUT: " << value << std::endl;
+                // invokevirtual indexbyte1 indexbyte2
+                uint16_t index = (code[pc + 1] << 8) | code[pc + 2];
+                std::cout << "Instruction: invokevirtual #" << index;
+
+                // 1. Resolve the method reference from the constant pool
+                auto method_ref = std::dynamic_pointer_cast<CpMethodRef>(cp[index]);
+                auto name_and_type = std::dynamic_pointer_cast<CpNameAndType>(cp[method_ref->name_and_type_index]);
+                auto descriptor = std::dynamic_pointer_cast<CpUtf8>(cp[name_and_type->descriptor_index]);
+
+                std::cout << " (Method: " << std::dynamic_pointer_cast<CpUtf8>(cp[name_and_type->name_index])->bytes << ", Descriptor: " << descriptor->bytes << ")" << std::endl;
+
+                // 2. Based on descriptor, decide how to handle the call
+                if (descriptor->bytes == "(Ljava/lang/String;)V")
+                {
+                    // Handle println(String)
+                    int string_cp_index = operand_stack.top();
+                    operand_stack.pop();
+                    operand_stack.pop(); // Pop dummy object ref for System.out
+
+                    // Resolve string from Constant Pool
+                    auto str_const = std::dynamic_pointer_cast<CpString>(cp[string_cp_index]);
+                    auto utf8_const = std::dynamic_pointer_cast<CpUtf8>(cp[str_const->string_index]);
+
+                    std::cout << ">> JVM OUTPUT: " << utf8_const->bytes << std::endl;
+                }
+                else if (descriptor->bytes == "(I)V")
+                {
+                    // Handle println(int)
+                    int value = operand_stack.top();
+                    operand_stack.pop();
+                    operand_stack.pop(); // pop dummy system.out
+                    std::cout << ">> JVM OUTPUT: " << value << std::endl;
+                }
+                else
+                {
+                    // For other invokevirtual calls we don't support, just pop the arguments.
+                    // This is a simplification! A real JVM would count args from the descriptor.
+                    int arg = operand_stack.top();
+                    operand_stack.pop();
+                    operand_stack.pop(); // object ref
+                    std::cout << "Warning: Simplified handling for invokevirtual descriptor " << descriptor->bytes << std::endl;
+                }
+
                 pc += 3;
                 break;
             }
-
-            // Works with build/HelloWorld.class testcase
-            // case OP_GETSTATIC:
-            // {
-            //     // getstatic indexbyte1 indexbyte2
-            //     uint16_t index = (code[pc + 1] << 8) | code[pc + 2];
-            //     std::cout << "Instruction: getstatic #" << index << " (System.out)" << std::endl;
-            //     // In a real JVM, this pushes a reference to System.out onto the stack.
-            //     // We'll push a dummy reference '99' to represent System.out.
-            //     operand_stack.push(99);
-            //     pc += 3;
-            //     break;
-            // }
-            // case OP_INVOKEVIRTUAL:
-            // {
-            //     // invokevirtual indexbyte1 indexbyte2
-            //     uint16_t index = (code[pc + 1] << 8) | code[pc + 2];
-            //     std::cout << "Instruction: invokevirtual #" << index << " (println)" << std::endl;
-
-            //     // Pop arguments: String index and Object reference (System.out)
-            //     int string_cp_index = operand_stack.top();
-            //     operand_stack.pop();
-            //     int object_ref = operand_stack.top();
-            //     operand_stack.pop();
-
-            //     // Resolve string from Constant Pool
-            //     auto str_const = std::dynamic_pointer_cast<CpString>(cp[string_cp_index]);
-            //     auto utf8_const = std::dynamic_pointer_cast<CpUtf8>(cp[str_const->string_index]);
-
-            //     // ACTUALLY PRINT TO MAC CONSOLE!
-            //     std::cout << ">> JVM OUTPUT: " << utf8_const->bytes << std::endl;
-
-            //     pc += 3;
-            //     break;
-            // }
             case OP_RETURN:
                 std::cout << "Instruction: return" << std::endl;
                 return 0;
