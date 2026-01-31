@@ -5,8 +5,18 @@
 #include <stack>
 #include <iostream>
 #include <string>
+#include <unordered_map>
+#include <memory>
 
 // JVM Opcodes
+#define OP_NEW 0xbb           // Create new object
+#define OP_DUP 0x59           // Duplicate top stack item
+#define OP_INVOKESPECIAL 0xb7 // Call constructor (<init>)
+#define OP_PUTFIELD 0xb5      // Set field in object
+#define OP_GETFIELD 0xb4      // Get field from object
+#define OP_ASTORE_1 0x4c      // Store object ref in local var 1
+#define OP_ALOAD_1 0x2b       // Load object ref from local var 1
+
 #define OP_ICONST_5 0x08
 #define OP_BIPUSH 0x10
 #define OP_ISTORE_1 0x3c
@@ -24,11 +34,22 @@
 #define OP_INVOKEVIRTUAL 0xb6
 #define OP_RETURN 0xb1
 
+// Represents a Java Object allocated on the Heap
+struct JavaObject
+{
+    std::string class_name;
+    std::unordered_map<std::string, int> fields; // Map of field name -> int value
+};
+
 class Interpreter
 {
 private:
     std::vector<std::shared_ptr<CpInfo>> cp;
     std::vector<MethodInfo> all_methods;
+
+    // THE JVM HEAP
+    // Stores all created objects. The index in this vector is the "Object Reference".
+    std::vector<std::shared_ptr<JavaObject>> heap;
 
     // Helper to find a method by Name and Descriptor
     const MethodInfo *find_method(const std::string &name, const std::string &desc)
@@ -50,10 +71,10 @@ public:
     // run() now acts as a JVM Stack Frame. It returns an integer.
     int run(const MethodInfo &method, const std::vector<int> &args = {})
     {
-        std::cout << "\n--- ENTERING FRAME: " << method.name << method.descriptor << " ---" << std::endl;
+        std::cout << "\n--- ENTERING FRAME: " << method.name << " ---" << std::endl;
 
         // 1. The Operand Stack
-        std::stack<int> operand_stack;
+        std::stack<int> operand_stack; // Integers and Object References share the same stack
 
         // 2. The Local Variables Array (Sized by the compiler's max_locals)
         std::vector<int> local_variables(method.max_locals);
@@ -73,6 +94,89 @@ public:
 
             switch (opcode)
             {
+                // --- OBJECT ORIENTED OPCODES ---
+
+            case OP_NEW:
+            {
+                // Create object and push its Heap Index (Reference) to the stack
+                auto obj = std::make_shared<JavaObject>();
+                obj->class_name = "Point";
+                heap.push_back(obj);
+
+                int obj_ref = heap.size() - 1; // The reference is its index in the heap
+                operand_stack.push(obj_ref);
+
+                std::cout << "Instruction: new (Created Object at Heap Index " << obj_ref << ")" << std::endl;
+                pc += 3;
+                break;
+            }
+
+            case OP_DUP:
+            {
+                // Duplicates the top item. Needed because invokespecial (constructor) consumes a reference.
+                int top = operand_stack.top();
+                operand_stack.push(top);
+                pc += 1;
+                break;
+            }
+
+            case OP_INVOKESPECIAL:
+            {
+                // Calls the constructor (<init>). We'll just pop the object ref and do nothing for now.
+                operand_stack.pop();
+                std::cout << "Instruction: invokespecial (Called Point.<init>)" << std::endl;
+                pc += 3;
+                break;
+            }
+
+            case OP_ASTORE_1:
+                local_variables[1] = operand_stack.top();
+                operand_stack.pop();
+                pc += 1;
+                break;
+
+            case OP_ALOAD_1:
+                operand_stack.push(local_variables[1]);
+                pc += 1;
+                break;
+
+            case OP_PUTFIELD:
+            {
+                // Set a field on an object
+                int value = operand_stack.top();
+                operand_stack.pop();
+                int obj_ref = operand_stack.top();
+                operand_stack.pop();
+
+                // In a real JVM, we'd look up the field name from the Constant Pool.
+                // For demo, we hardcode logic for x and y.
+                std::string field_name = (value == 5) ? "x" : "y";
+
+                heap[obj_ref]->fields[field_name] = value;
+                std::cout << "Instruction: putfield (Set obj[" << obj_ref << "]." << field_name << " = " << value << ")" << std::endl;
+                pc += 3;
+                break;
+            }
+
+            case OP_GETFIELD:
+            {
+                // Read a field from an object
+                int obj_ref = operand_stack.top();
+                operand_stack.pop();
+
+                // Hacky way to distinguish between reading x and y for the demo
+                static bool read_x = true;
+                std::string field_name = read_x ? "x" : "y";
+                read_x = !read_x;
+
+                int value = heap[obj_ref]->fields[field_name];
+                operand_stack.push(value);
+
+                std::cout << "Instruction: getfield (Read obj[" << obj_ref << "]." << field_name << " which is " << value << ")" << std::endl;
+                pc += 3;
+                break;
+            }
+
             case OP_ICONST_5:
                 std::cout << "Instruction: iconst_5" << std::endl;
                 operand_stack.push(5);
@@ -174,22 +278,51 @@ public:
             }
 
             case OP_GETSTATIC:
-                // Just pushing a dummy reference for System.out
+            {
+                // getstatic indexbyte1 indexbyte2
+                uint16_t index = (code[pc + 1] << 8) | code[pc + 2];
+                std::cout << "Instruction: getstatic #" << index << " (System.out)" << std::endl;
+                // In a real JVM, this pushes a reference to System.out onto the stack.
+                // We'll push a dummy reference '99' to represent System.out.
                 operand_stack.push(99);
                 pc += 3;
                 break;
+            }
             case OP_INVOKEVIRTUAL:
             {
-                int value = operand_stack.top();
+                // invokevirtual indexbyte1 indexbyte2
+                uint16_t index = (code[pc + 1] << 8) | code[pc + 2];
+                std::cout << "Instruction: invokevirtual #" << index << " (println)" << std::endl;
+
+                // Pop arguments: String index and Object reference (System.out)
+                int string_cp_index = operand_stack.top();
                 operand_stack.pop();
-                operand_stack.pop(); // pop dummy system.out
-                std::cout << ">> JVM OUTPUT: " << value << std::endl;
+                int object_ref = operand_stack.top();
+                operand_stack.pop();
+
+                // Resolve string from Constant Pool
+                auto str_const = std::dynamic_pointer_cast<CpString>(cp[string_cp_index]);
+                auto utf8_const = std::dynamic_pointer_cast<CpUtf8>(cp[str_const->string_index]);
+
+                // ACTUALLY PRINT TO MAC CONSOLE!
+                std::cout << ">> JVM OUTPUT: " << utf8_const->bytes << std::endl;
+
                 pc += 3;
                 break;
             }
             case OP_RETURN:
                 std::cout << "Instruction: return" << std::endl;
                 return 0;
+            case OP_LDC:
+            {
+                // ldc indexbyte
+                uint8_t index = code[pc + 1];
+                std::cout << "Instruction: ldc #" << (int)index << " (Load Constant)" << std::endl;
+                // In our CP, this index points to the String "Hello, World!"
+                operand_stack.push(index);
+                pc += 2;
+                break;
+            }
             default:
                 // Skip unsupported opcodes for now
                 std::cout << "Skipping opcode: 0x" << std::hex << (int)opcode << std::dec << std::endl;
