@@ -17,11 +17,63 @@ Our JIT is designed for Apple Silicon (ARM64) and demonstrates the core principl
     - **Register Usage**: We use `W0` (the lower 32 bits of register `X0`) as the return register for integer values, as per ARM64 ABI conventions. `MOVZ W0, #immediate` is used to move a constant into `W0`. `RET` is the return instruction.
 
 2.  **ARM64 Calling Convention for Arguments**:
+
     A critical aspect for methods that take arguments (like `add(int a, int b)`) is understanding how the CPU receives them. On ARM64 (macOS):
     - The first integer argument is passed in CPU register `W0`.
+
     - The second integer argument is passed in CPU register `W1`.
+
     - And so on, up to `W7`.
+
     - The return value must also be placed in `W0`.
+
+    #### Mechanism of Calling JIT'd Code from C++
+
+    When you call the JIT-compiled function from C++ like `func(arg1, arg2)`, there's a specific mechanism at play dictated by the **Application Binary Interface (ABI)** or **Calling Convention**. This allows C++ code to seamlessly interact with your JIT-generated machine code.
+
+    Here's a step-by-step breakdown of what happens on an ARM64 (Apple Silicon) Mac:
+    1.  **The `typedef` (Defining the Contract)**:
+
+        ```cpp
+
+        typedef int (*JitFunctionArgs)(int, int);
+
+        ```
+
+        This C++ `typedef` acts as a contract. It tells the C++ compiler: "The code at `method.jit_code_ptr` expects two integer arguments and will return one integer."
+
+    2.  **C++ Compiler Prepares Registers**:
+
+        When `func(arg1, arg2)` is invoked, your C++ compiler (Clang) generates assembly instructions _before_ jumping to your JIT code. These instructions move your C++ variables (`arg1`, `arg2`) into the designated CPU registers according to the ARM64 ABI:
+        - `arg1`'s value is moved into CPU Register **W0**.
+
+        - `arg2`'s value is moved into CPU Register **W1**.
+
+        (The compiler also loads the JIT code's memory address into a temporary register).
+
+    3.  **The Jump (`BLR` - Branch with Link to Register)**:
+
+        The C++ code then executes a `BLR` instruction, which:
+        - Changes the CPU's Program Counter (`PC`) to the starting address of your JIT-compiled code.
+
+        - Saves the "return address" (the next instruction in the C++ code) into a special register called the **Link Register (LR/x30)**.
+
+    4.  **JIT Code Executes**:
+
+        The CPU is now executing your JIT-generated machine code. Because the C++ compiler followed the ABI, your JIT code can _assume_ the arguments are already in `W0` and `W1`. For example, an `ADD W0, W0, W1` instruction directly uses these registers.
+
+    5.  **The Return (`RET`)**:
+
+        Your JIT code ends with `RET` (`0xD65F03C0`). This instruction tells the CPU to:
+        - Read the return address from the Link Register (LR).
+
+        - Jump back to that C++ address, effectively returning control to the C++ code that called `func`.
+
+    6.  **C++ Retrieves Result**:
+
+        Back in the C++ code, the compiler knows that the integer return value from the called function will be in `W0` (another ABI rule). It reads the value from `W0` and assigns it to your `result` variable.
+
+    This entire process allows different layers of code (C++ and native machine code) to communicate efficiently and correctly by adhering to a predefined contract (the ABI).
 
 3.  **Memory Protection (W^X)**:
     - Modern operating systems (especially macOS) enforce **W^X (Write XOR Execute)** security. Memory regions cannot be simultaneously Writable and Executable.
