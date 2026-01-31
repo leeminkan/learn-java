@@ -51,6 +51,7 @@ This JVM implementation is a work in progress and supports a growing set of feat
         -   Basic object creation for a hardcoded `Point` class.
         -   Integer array creation (`newarray`), length checking (`arraylength`), and element access (`iaload`, `iastore`).
     -   **Method Invocation**: Static method calls (`invokestatic`) and dynamic dispatch for `System.out.println` (`invokevirtual`).
+    -   **Just-In-Time (JIT) Compilation**: A basic ARM64 JIT compiler that optimizes "hot" methods returning constant integers into native machine code for faster execution.
 
 ## Limitations
 
@@ -58,5 +59,6 @@ This JVM implementation is a work in progress and supports a growing set of feat
 -   Opcode support is still incomplete (no floating-point numbers, exceptions, etc.).
 -   Array support is limited to integer arrays.
 -   The class parser ignores many attributes and structures.
+-   The JIT compiler is a "leaf JIT", only optimizing very simple methods (constant return values) and demonstrating the pipeline, not a full-featured JIT.
 
 This project is ideal for learning about JVM internals and can be extended to support more Java features.

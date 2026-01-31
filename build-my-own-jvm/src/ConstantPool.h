@@ -45,6 +45,10 @@ struct MethodInfo
     std::vector<uint8_t> bytecode; // The raw instructions
     uint16_t max_stack;
     uint16_t max_locals;
+
+    // --- NEW JIT FIELDS ---
+    int call_count = 0;           // Profiler counter
+    void *jit_code_ptr = nullptr; // Pointer to native ARM64 code
 };
 
 // Add this struct

@@ -46,3 +46,11 @@ struct JavaObject {
 };
 ```
 When an array is created, its data is stored in `array_data`. When a standard object is created, its instance variables are stored in the `fields` map.
+
+### Just-In-Time (JIT) Compilation
+To improve performance beyond pure interpretation, modern JVMs employ Just-In-Time (JIT) compilers. Our JIT takes frequently executed ("hot") methods and translates their bytecode into native machine code (ARM64 in our case) during runtime.
+
+- **Profiling**: The JVM tracks the `call_count` for each method.
+- **Compilation Trigger**: When a method's `call_count` reaches a certain threshold, the `JitCompiler` attempts to compile it.
+- **Native Execution**: If successful, subsequent calls to that method directly execute the much faster native code, bypassing the interpreter.
+

@@ -19,6 +19,6 @@ public:
     ClassReader(const std::string &filename);
     ~ClassReader();
     void parse();
-    std::vector<MethodInfo> get_methods() { return methods; }
+    std::vector<MethodInfo> &get_methods() { return methods; }
     std::vector<std::shared_ptr<CpInfo>> get_constant_pool() { return constant_pool; }
 };

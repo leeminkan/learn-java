@@ -7,3 +7,4 @@ This section contains documentation about the architecture, concepts, and implem
 1.  [Project Overview](./01_project_overview.md)
 2.  [Core JVM Concepts](./02_core_concepts.md)
 3.  [Case Study: The `invokevirtual` Challenge](./03_case_study_invokevirtual.md)
+4.  [Case Study: Just-In-Time (JIT) Compilation](./04_case_study_jit.md)
